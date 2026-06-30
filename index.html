@@ -1,0 +1,1743 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Muhasabah Harian</title>
+<meta name="theme-color" content="#7a6020">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Muhasabah">
+<link rel="manifest" id="pwaManifest">
+<script>
+// ── PWA MANIFEST (inline, no server needed) ──
+const manifestData = {
+  name: "Muhasabah Harian",
+  short_name: "Muhasabah",
+  description: "Catatan ibadah harian untuk muhasabah diri",
+  start_url: "./",
+  display: "standalone",
+  background_color: "#fdf8f0",
+  theme_color: "#7a6020",
+  orientation: "portrait",
+  icons: [
+    { src: makeIcon(192), sizes: "192x192", type: "image/png" },
+    { src: makeIcon(512), sizes: "512x512", type: "image/png" }
+  ]
+};
+function makeIcon(size) {
+  const canvas = document.createElement('canvas');
+  canvas.width = size; canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  // background
+  ctx.fillStyle = '#f5eddb';
+  ctx.beginPath();
+  ctx.roundRect(0, 0, size, size, size * 0.18);
+  ctx.fill();
+  // border
+  ctx.strokeStyle = '#b8953a';
+  ctx.lineWidth = size * 0.03;
+  ctx.stroke();
+  // arabic text
+  ctx.fillStyle = '#7a6020';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = `bold ${size*0.28}px serif`;
+  ctx.fillText('م', size/2, size*0.38);
+  ctx.font = `${size*0.13}px sans-serif`;
+  ctx.fillStyle = '#5a4e38';
+  ctx.fillText('Muhasabah', size/2, size*0.65);
+  ctx.font = `${size*0.09}px sans-serif`;
+  ctx.fillStyle = '#8a7d65';
+  ctx.fillText('Harian', size/2, size*0.78);
+  return canvas.toDataURL('image/png');
+}
+// inject manifest
+window.addEventListener('DOMContentLoaded', () => {
+  const icons = [
+    { src: makeIcon(192), sizes: "192x192", type: "image/png" },
+    { src: makeIcon(512), sizes: "512x512", type: "image/png" }
+  ];
+  const manifest = { ...manifestData, icons };
+  const blob = new Blob([JSON.stringify(manifest)], {type:'application/json'});
+  document.getElementById('pwaManifest').href = URL.createObjectURL(blob);
+});
+// ── SERVICE WORKER (offline cache) ──
+if ('serviceWorker' in navigator) {
+  const swCode = `
+const CACHE = 'muhasabah-v1';
+self.addEventListener('install', e => {
+  self.skipWaiting();
+});
+self.addEventListener('fetch', e => {
+  e.respondWith(
+    caches.match(e.request).then(r => r || fetch(e.request).catch(() => new Response('', {status: 408})))
+  );
+});
+  `;
+  const swBlob = new Blob([swCode], {type:'application/javascript'});
+  const swUrl = URL.createObjectURL(swBlob);
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register(swUrl).catch(() => {});
+  });
+}
+</script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400&family=Lato:wght@300;400;700&display=swap');
+
+  :root {
+    --gold: #b8953a;
+    --gold-light: #e8d59a;
+    --gold-pale: #faf6ed;
+    --gold-dark: #7a6020;
+    --ink: #2c2416;
+    --ink-soft: #5a4e38;
+    --ink-muted: #8a7d65;
+    --parchment: #fdf8f0;
+    --parchment-deep: #f5eddb;
+    --border: #d4c49a;
+    --border-light: #e8dfc4;
+    --green: #2d6a4f;
+    --green-bg: #eaf4ef;
+    --red: #9b2226;
+    --red-bg: #fdecea;
+    --blue: #1a4a7a;
+    --blue-bg: #eaf1f8;
+    --radius: 8px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--parchment);
+    color: var(--ink);
+    font-family: 'Lato', sans-serif;
+    font-weight: 300;
+    min-height: 100vh;
+  }
+
+  /* ── ORNAMENT TOP ── */
+  .ornament-top {
+    background: linear-gradient(180deg, #f5eddb 0%, var(--parchment) 100%);
+    border-bottom: 1px solid var(--border);
+    text-align: center;
+    padding: 28px 20px 20px;
+    position: relative;
+  }
+  .ornament-top::before {
+    content: '';
+    display: block;
+    width: 120px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    margin: 0 auto 16px;
+  }
+  .arabic-header {
+    font-family: 'Amiri', serif;
+    font-size: 28px;
+    color: var(--gold-dark);
+    letter-spacing: 2px;
+    margin-bottom: 4px;
+  }
+  .app-title {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    margin-bottom: 2px;
+  }
+  .app-subtitle {
+    font-size: 11px;
+    color: var(--ink-muted);
+    font-style: italic;
+  }
+  .ornament-top::after {
+    content: '';
+    display: block;
+    width: 60px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    margin: 14px auto 0;
+  }
+
+  /* ── NAV TABS ── */
+  .nav-tabs {
+    display: flex;
+    background: var(--parchment-deep);
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .nav-tabs::-webkit-scrollbar { display: none; }
+  .nav-tab {
+    padding: 12px 18px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+    transition: all 0.2s;
+    background: none;
+    border-top: none;
+    border-left: none;
+    border-right: none;
+    font-family: 'Lato', sans-serif;
+  }
+  .nav-tab:hover { color: var(--gold-dark); }
+  .nav-tab.active {
+    color: var(--gold-dark);
+    border-bottom-color: var(--gold);
+    background: var(--gold-pale);
+  }
+
+  /* ── MAIN ── */
+  .page { display: none; padding: 20px; max-width: 760px; margin: 0 auto; }
+  .page.active { display: block; }
+
+  /* ── DATE BAR ── */
+  .date-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--parchment-deep);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 16px;
+    margin-bottom: 20px;
+  }
+  .date-display { font-family: 'Amiri', serif; font-size: 17px; color: var(--gold-dark); }
+  .date-nav { display: flex; gap: 6px; }
+  .date-btn {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 4px 10px;
+    font-size: 13px;
+    cursor: pointer;
+    color: var(--ink-soft);
+    font-family: 'Lato', sans-serif;
+  }
+  .date-btn:hover { background: var(--border-light); }
+  .date-btn.today { font-weight: 700; color: var(--gold-dark); border-color: var(--gold); }
+
+  /* ── SECTION ── */
+  .section {
+    background: #fff;
+    border: 1px solid var(--border-light);
+    border-radius: 10px;
+    margin-bottom: 16px;
+    overflow: hidden;
+  }
+  .section-header {
+    background: var(--parchment-deep);
+    border-bottom: 1px solid var(--border-light);
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .section-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--gold-pale);
+    border: 1px solid var(--gold-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+  .section-title {
+    font-family: 'Amiri', serif;
+    font-size: 16px;
+    color: var(--gold-dark);
+    flex: 1;
+  }
+  .section-body { padding: 14px 16px; }
+
+  /* ── SHOLAT ROW ── */
+  .sholat-row {
+    display: grid;
+    grid-template-columns: 90px 1fr 1fr;
+    gap: 8px;
+    align-items: start;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border-light);
+  }
+  .sholat-row:last-child { border-bottom: none; }
+  .sholat-name {
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--ink);
+    padding-top: 8px;
+  }
+  .sholat-col { display: flex; flex-direction: column; gap: 4px; }
+  .col-label { font-size: 10px; color: var(--ink-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+
+  /* ── INPUTS ── */
+  input[type="time"], input[type="number"], input[type="text"], select, textarea {
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 6px 8px;
+    font-family: 'Lato', sans-serif;
+    font-size: 13px;
+    color: var(--ink);
+    background: var(--parchment);
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  input:focus, select:focus, textarea:focus { border-color: var(--gold); background: var(--gold-pale); }
+  select { cursor: pointer; }
+  textarea { resize: vertical; min-height: 60px; }
+
+  /* ── STATUS PILLS ── */
+  .status-select {
+    appearance: none;
+    -webkit-appearance: none;
+    text-align: center;
+    cursor: pointer;
+  }
+
+  /* ── ROWATIB ── */
+  .rowatib-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-top: 6px;
+    flex-wrap: wrap;
+  }
+  .check-label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    color: var(--ink-soft);
+    cursor: pointer;
+  }
+  .check-label input[type="checkbox"] { width: 14px; height: 14px; accent-color: var(--gold-dark); cursor: pointer; }
+
+  /* ── GRID 2 ── */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+
+  /* ── FORM GROUP ── */
+  .form-group { display: flex; flex-direction: column; gap: 4px; }
+  .form-label { font-size: 12px; color: var(--ink-soft); font-weight: 700; letter-spacing: 0.3px; }
+  .form-hint { font-size: 10px; color: var(--ink-muted); font-style: italic; }
+
+  /* ── QURAN ROW ── */
+  .quran-row { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 8px; align-items: end; margin-bottom: 8px; }
+  .quran-row:last-child { margin-bottom: 0; }
+
+  /* ── DIVIDER ── */
+  .divider { height: 1px; background: var(--border-light); margin: 10px 0; }
+
+  /* ── SAVE BTN ── */
+  .save-bar {
+    position: sticky;
+    bottom: 0;
+    background: var(--parchment);
+    border-top: 1px solid var(--border);
+    padding: 14px 20px;
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    align-items: center;
+    max-width: 760px;
+    margin: 0 auto;
+  }
+  .save-status { font-size: 12px; color: var(--green); font-style: italic; }
+  .btn-save {
+    background: var(--gold-dark);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 10px 24px;
+    font-family: 'Lato', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .btn-save:hover { background: var(--gold); }
+  .btn-secondary {
+    background: none;
+    color: var(--ink-soft);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 18px;
+    font-family: 'Lato', sans-serif;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .btn-secondary:hover { background: var(--border-light); }
+
+  /* ── PROGRESS BAR ── */
+  .progress-wrap { margin-top: 6px; }
+  .progress-label { display: flex; justify-content: space-between; font-size: 11px; color: var(--ink-muted); margin-bottom: 3px; }
+  .progress-bar { height: 5px; background: var(--border-light); border-radius: 99px; overflow: hidden; }
+  .progress-fill { height: 100%; background: var(--gold); border-radius: 99px; transition: width 0.4s; }
+  .progress-fill.done { background: var(--green); }
+
+  /* ── MONTHLY PAGE ── */
+  .month-nav { display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 20px; }
+  .month-title { font-family: 'Amiri', serif; font-size: 20px; color: var(--gold-dark); }
+  .score-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .score-card {
+    background: #fff;
+    border: 1px solid var(--border-light);
+    border-radius: 10px;
+    padding: 14px;
+    text-align: center;
+  }
+  .score-card-label { font-size: 11px; color: var(--ink-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .score-card-value { font-size: 26px; font-weight: 700; color: var(--gold-dark); font-family: 'Amiri', serif; }
+  .score-card-unit { font-size: 11px; color: var(--ink-muted); }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 20px; }
+  .cal-day-head { text-align: center; font-size: 10px; font-weight: 700; color: var(--ink-muted); text-transform: uppercase; padding: 4px 0; }
+  .cal-day {
+    aspect-ratio: 1;
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.2s;
+    flex-direction: column;
+    gap: 1px;
+  }
+  .cal-day.empty { background: none; cursor: default; }
+  .cal-day.has-data { background: var(--gold-pale); border-color: var(--gold-light); }
+  .cal-day.today-cal { border-color: var(--gold); font-weight: 700; }
+  .cal-day:not(.empty):hover { background: var(--parchment-deep); border-color: var(--border); }
+  .cal-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--gold); }
+
+  /* ── TARGET PAGE ── */
+  .target-desc { font-size: 13px; color: var(--ink-muted); font-style: italic; margin-bottom: 20px; }
+
+  /* ── WELCOME SCREEN ── */
+  .welcome-overlay {
+    position: fixed;
+    inset: 0;
+    background: var(--parchment);
+    z-index: 999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 30px;
+  }
+  .welcome-box {
+    max-width: 380px;
+    width: 100%;
+    text-align: center;
+  }
+  .welcome-arabic { font-family: 'Amiri', serif; font-size: 32px; color: var(--gold-dark); margin-bottom: 8px; }
+  .welcome-title { font-size: 15px; font-weight: 700; letter-spacing: 2px; color: var(--ink-soft); text-transform: uppercase; margin-bottom: 6px; }
+  .welcome-sub { font-size: 13px; color: var(--ink-muted); font-style: italic; margin-bottom: 28px; line-height: 1.6; }
+  .welcome-line { width: 60px; height: 1px; background: linear-gradient(90deg, transparent, var(--gold), transparent); margin: 0 auto 28px; }
+  .welcome-input-label { font-size: 12px; color: var(--ink-soft); margin-bottom: 8px; text-align: left; font-weight: 700; }
+  .welcome-input {
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 14px;
+    font-family: 'Lato', sans-serif;
+    color: var(--ink);
+    background: var(--gold-pale);
+    outline: none;
+    margin-bottom: 16px;
+  }
+  .welcome-input:focus { border-color: var(--gold); }
+  .btn-welcome {
+    width: 100%;
+    background: var(--gold-dark);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 12px;
+    font-family: 'Lato', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    cursor: pointer;
+  }
+  .btn-welcome:hover { background: var(--gold); }
+
+  /* ── USER BADGE ── */
+  .user-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--ink-muted);
+    position: absolute;
+    right: 16px;
+    top: 14px;
+  }
+  .user-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--gold-pale);
+    border: 1px solid var(--gold-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--gold-dark);
+  }
+
+  /* ── TAMBAHAN ── */
+  .add-btn {
+    background: none;
+    border: 1px dashed var(--border);
+    border-radius: 5px;
+    padding: 6px 12px;
+    font-size: 12px;
+    color: var(--ink-muted);
+    cursor: pointer;
+    width: 100%;
+    text-align: left;
+    font-family: 'Lato', sans-serif;
+    margin-top: 6px;
+  }
+  .add-btn:hover { border-color: var(--gold); color: var(--gold-dark); background: var(--gold-pale); }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 500px) {
+    .sholat-row { grid-template-columns: 80px 1fr 1fr; }
+    .grid-2 { grid-template-columns: 1fr; }
+    .grid-3 { grid-template-columns: 1fr 1fr; }
+    .quran-row { grid-template-columns: 1fr; }
+    .score-grid { grid-template-columns: 1fr 1fr; }
+  }
+
+  /* ── EXTRA AMALAN ── */
+  .extra-item {
+    display: grid;
+    grid-template-columns: 1fr 80px 24px;
+    gap: 6px;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+  .del-btn {
+    background: none;
+    border: none;
+    color: var(--ink-muted);
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    padding: 2px;
+  }
+  .del-btn:hover { color: var(--red); }
+
+  .info-box {
+    background: var(--gold-pale);
+    border: 1px solid var(--gold-light);
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 12px;
+    color: var(--ink-soft);
+    font-style: italic;
+    margin-bottom: 16px;
+  }
+
+  /* highlight sholat status */
+  select.status-tepat { background: var(--green-bg); color: var(--green); border-color: #a8d5be; }
+  select.status-jamak { background: #fff8e6; color: #7a6020; border-color: #e8d59a; }
+  select.status-qadha { background: var(--red-bg); color: var(--red); border-color: #f5b8b8; }
+  select.status-tidak { background: #f5f5f5; color: var(--ink-muted); border-color: var(--border); }
+</style>
+</head>
+<body>
+
+<!-- WELCOME SCREEN -->
+<div class="welcome-overlay" id="welcomeOverlay">
+  <div class="welcome-box">
+    <div class="welcome-arabic">بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحِيمِ</div>
+    <div class="welcome-title">Muhasabah Harian</div>
+    <div class="welcome-line"></div>
+    <div class="welcome-sub">Catatan ibadah harian untuk diri sendiri — bukan untuk dinilai, bukan untuk dibanggakan, melainkan sebagai cermin muhasabah.</div>
+    <div class="welcome-input-label">Tuliskan nama Anda</div>
+    <input class="welcome-input" type="text" id="nameInput" placeholder="Nama Anda..." maxlength="40">
+    <button class="btn-welcome" onclick="saveNameAndStart()">Bismillah, Mulai ›</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="ornament-top">
+  <div class="arabic-header">مُحَاسَبَة</div>
+  <div class="app-title">Muhasabah Harian</div>
+  <div class="app-subtitle">Introspeksi — untuk kebaikan diri sendiri</div>
+  <div class="user-badge" id="userBadge" style="display:none">
+    <div class="user-avatar" id="userAvatar">A</div>
+    <span id="userNameDisplay"></span>
+  </div>
+  <button id="installBtn" onclick="installPWA()" style="display:none;position:absolute;left:16px;top:14px;background:var(--gold-pale);border:1px solid var(--gold-light);border-radius:5px;padding:4px 10px;font-size:11px;color:var(--gold-dark);cursor:pointer;font-family:'Lato',sans-serif;font-weight:700">
+    📲 Pasang di HP
+  </button>
+</div>
+
+<div class="nav-tabs">
+  <button class="nav-tab active" onclick="switchPage('harian')">📖 Harian</button>
+  <button class="nav-tab" onclick="switchPage('bulanan')">📅 Bulanan</button>
+  <button class="nav-tab" onclick="switchPage('target')">🎯 Target</button>
+</div>
+
+<!-- ══════════ PAGE: HARIAN ══════════ -->
+<div class="page active" id="page-harian">
+  <div class="date-bar">
+    <div>
+      <div class="date-display" id="dateDisplay">—</div>
+      <div style="font-size:11px;color:var(--ink-muted)" id="dateHijri"></div>
+    </div>
+    <div class="date-nav">
+      <button class="date-btn" onclick="changeDay(-1)">‹</button>
+      <button class="date-btn today" onclick="goToday()">Hari ini</button>
+      <button class="date-btn" onclick="changeDay(1)">›</button>
+    </div>
+  </div>
+
+  <!-- SHOLAT 5 WAKTU -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon">🕌</div>
+      <div class="section-title">Sholat Fardhu & Sunnah Rawatib</div>
+    </div>
+    <div class="section-body" id="sholatBody">
+      <!-- generated by JS -->
+    </div>
+  </div>
+
+  <!-- SHOLAT SUNNAH -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon">🌙</div>
+      <div class="section-title">Sholat Sunnah</div>
+    </div>
+    <div class="section-body">
+      <div class="grid-3">
+        <div class="form-group">
+          <div class="form-label">Dhuha</div>
+          <input type="number" id="s_duha" min="0" max="20" placeholder="rakaat" oninput="autoSave()">
+        </div>
+        <div class="form-group">
+          <div class="form-label">Tahajud</div>
+          <input type="number" id="s_tahajud" min="0" max="20" placeholder="rakaat" oninput="autoSave()">
+        </div>
+        <div class="form-group">
+          <div class="form-label">Tasbih</div>
+          <input type="number" id="s_tasbih" min="0" max="4" placeholder="rakaat" oninput="autoSave()">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DZIKIR & DOA -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon">📿</div>
+      <div class="section-title">Pengamalan & Dzikir Rutin</div>
+    </div>
+    <div class="section-body">
+      <div class="grid-2">
+        <div class="form-group">
+          <div class="form-label">Pengamalan / Doa Rutin (PR)</div>
+          <input type="number" id="d_pr" min="0" placeholder="jumlah kali" oninput="autoSave()">
+        </div>
+        <div class="form-group">
+          <div class="form-label">Surat Al-Mulk</div>
+          <input type="number" id="d_mulk" min="0" placeholder="jumlah kali" oninput="autoSave()">
+        </div>
+        <div class="form-group">
+          <div class="form-label">Doa Malam</div>
+          <input type="number" id="d_malam" min="0" placeholder="jumlah kali" oninput="autoSave()">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- QURAN -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon">📖</div>
+      <div class="section-title">Membaca Al-Qur'an</div>
+    </div>
+    <div class="section-body">
+      <div id="quranRows">
+        <!-- generated by JS -->
+      </div>
+      <button class="add-btn" onclick="addQuranRow()">+ Tambah sesi baca</button>
+    </div>
+  </div>
+
+  <!-- PENGAJIAN RUTIN -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon">🕌</div>
+      <div class="section-title">Pengajian Rutin</div>
+    </div>
+    <div class="section-body">
+      <div class="form-hint" style="margin-bottom:10px">Centang jika hari ini mengikuti pengajian rutin.</div>
+      <div id="pengajianList">
+        <!-- generated by JS -->
+      </div>
+      <button class="add-btn" onclick="addPengajianItem()">+ Tambah pengajian</button>
+    </div>
+  </div>
+
+  <!-- PUASA -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon">🌤️</div>
+      <div class="section-title">Puasa Sunnah</div>
+    </div>
+    <div class="section-body">
+      <div class="grid-3">
+        <div class="form-group">
+          <div class="form-label">Senin–Kamis</div>
+          <select id="p_seninkamis" onchange="autoSave()">
+            <option value="">–</option>
+            <option value="ya">✓ Ya</option>
+            <option value="tidak">✗ Tidak</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <div class="form-label">Nabi Daud</div>
+          <select id="p_daud" onchange="autoSave()">
+            <option value="">–</option>
+            <option value="ya">✓ Ya</option>
+            <option value="tidak">✗ Tidak</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <div class="form-label">Mutih / lainnya</div>
+          <input type="text" id="p_lain" placeholder="jenis / keterangan" oninput="autoSave()">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MENGAJI -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon">🎓</div>
+      <div class="section-title">Mengaji / Mencari Ilmu / Menderes</div>
+    </div>
+    <div class="section-body">
+      <div class="grid-2">
+        <div class="form-group">
+          <div class="form-label">Mengaji / Menderes Al-Qur'an</div>
+          <input type="number" id="ilmu_ngaji" min="0" placeholder="menit / kali" oninput="autoSave()">
+          <div class="form-hint">menit atau jumlah sesi</div>
+        </div>
+        <div class="form-group">
+          <div class="form-label">Belajar Hadits / Ilmu Agama</div>
+          <input type="number" id="ilmu_hadits" min="0" placeholder="menit / kali" oninput="autoSave()">
+          <div class="form-hint">menit atau jumlah sesi</div>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="form-group">
+        <div class="form-label">Catatan (kitab / topik yang dipelajari)</div>
+        <textarea id="ilmu_catatan" placeholder="contoh: Riyadhussalihin bab kejujuran, halaman 45..." oninput="autoSave()"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- AMALAN TAMBAHAN -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon">✨</div>
+      <div class="section-title">Amalan Tambahan / Rutin Lainnya</div>
+    </div>
+    <div class="section-body">
+      <div class="info-box">Kolom bebas untuk amalan yang Anda rutinkan secara pribadi.</div>
+      <div id="extraAmalanList"></div>
+      <button class="add-btn" onclick="addExtraAmalan()">+ Tambah amalan</button>
+    </div>
+  </div>
+
+  <!-- TARGET PROGRESS (tampil jika target sudah diisi) -->
+  <div class="section" id="targetProgress" style="display:none">
+    <div class="section-header">
+      <div class="section-icon">🎯</div>
+      <div class="section-title">Pencapaian Hari Ini vs Target</div>
+    </div>
+    <div class="section-body" id="targetProgressBody"></div>
+  </div>
+
+</div><!-- end page-harian -->
+
+<!-- ══════════ PAGE: BULANAN ══════════ -->
+<div class="page" id="page-bulanan">
+  <div class="month-nav">
+    <button class="date-btn" onclick="changeMonth(-1)">‹</button>
+    <div class="month-title" id="monthTitle">—</div>
+    <button class="date-btn" onclick="changeMonth(1)">›</button>
+  </div>
+
+  <div class="score-grid" id="scoreGrid"></div>
+
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon">📅</div>
+      <div class="section-title">Kalender Bulan Ini</div>
+    </div>
+    <div class="section-body">
+      <div class="cal-grid" id="calGrid"></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon">📊</div>
+      <div class="section-title">Detail per Hari</div>
+    </div>
+    <div class="section-body" id="monthDetail">
+      <div style="color:var(--ink-muted);font-size:13px;font-style:italic">Klik tanggal di kalender untuk melihat detail.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ PAGE: TARGET ══════════ -->
+<div class="page" id="page-target">
+  <div class="info-box">
+    Target ini hanya untuk diri sendiri — sebagai pengingat dan tolok ukur. Isi sesuai kemampuan dan kondisi Anda.
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon">🕌</div>
+      <div class="section-title">Sholat & Ibadah Wajib</div>
+    </div>
+    <div class="section-body">
+      <div class="grid-2">
+        <div class="form-group">
+          <div class="form-label">Sholat 5 waktu (dari 5)</div>
+          <input type="number" id="t_sholat5" min="0" max="5" placeholder="5" oninput="saveTargets()">
+        </div>
+        <div class="form-group">
+          <div class="form-label">Rawatib — berapa sholat memiliki rawatib</div>
+          <input type="number" id="t_rawatib" min="0" max="5" placeholder="5" oninput="saveTargets()">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon">🌙</div>
+      <div class="section-title">Sholat Sunnah (rakaat)</div>
+    </div>
+    <div class="section-body">
+      <div class="grid-3">
+        <div class="form-group">
+          <div class="form-label">Dhuha</div>
+          <input type="number" id="t_duha" min="0" placeholder="rakaat" oninput="saveTargets()">
+        </div>
+        <div class="form-group">
+          <div class="form-label">Tahajud</div>
+          <input type="number" id="t_tahajud" min="0" placeholder="rakaat" oninput="saveTargets()">
+        </div>
+        <div class="form-group">
+          <div class="form-label">Tasbih</div>
+          <input type="number" id="t_tasbih" min="0" placeholder="rakaat" oninput="saveTargets()">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon">📿</div>
+      <div class="section-title">Dzikir & Doa</div>
+    </div>
+    <div class="section-body">
+      <div class="grid-2">
+        <div class="form-group">
+          <div class="form-label">PR / Doa Rutin (kali)</div>
+          <input type="number" id="t_pr" min="0" placeholder="kali" oninput="saveTargets()">
+        </div>
+        <div class="form-group">
+          <div class="form-label">Surat Al-Mulk (kali)</div>
+          <input type="number" id="t_mulk" min="0" placeholder="kali" oninput="saveTargets()">
+        </div>
+        <div class="form-group">
+          <div class="form-label">Doa Malam (kali)</div>
+          <input type="number" id="t_malam" min="0" placeholder="kali" oninput="saveTargets()">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon">📖</div>
+      <div class="section-title">Al-Qur'an & Ilmu</div>
+    </div>
+    <div class="section-body">
+      <div class="grid-2">
+        <div class="form-group">
+          <div class="form-label">Baca Qur'an (sesi/hari)</div>
+          <input type="number" id="t_quran" min="0" placeholder="sesi" oninput="saveTargets()">
+        </div>
+        <div class="form-group">
+          <div class="form-label">Mengaji / Ilmu (menit/hari)</div>
+          <input type="number" id="t_ilmu" min="0" placeholder="menit" oninput="saveTargets()">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header">
+      <div class="section-icon">🎯</div>
+      <div class="section-title">Sistem Penilaian Bulanan</div>
+    </div>
+    <div class="section-body">
+      <div class="form-group" style="margin-bottom:12px">
+        <div class="form-label">Bobot penilaian (total harus 100)</div>
+        <div class="form-hint" style="margin-bottom:8px">Sesuaikan prioritas Anda sendiri</div>
+      </div>
+      <div class="grid-2">
+        <div class="form-group">
+          <div class="form-label">Sholat 5 waktu (%)</div>
+          <input type="number" id="w_sholat" min="0" max="100" placeholder="40" oninput="saveTargets()">
+        </div>
+        <div class="form-group">
+          <div class="form-label">Sholat Sunnah (%)</div>
+          <input type="number" id="w_sunnah" min="0" max="100" placeholder="15" oninput="saveTargets()">
+        </div>
+        <div class="form-group">
+          <div class="form-label">Dzikir & Doa (%)</div>
+          <input type="number" id="w_dzikir" min="0" max="100" placeholder="15" oninput="saveTargets()">
+        </div>
+        <div class="form-group">
+          <div class="form-label">Baca Qur'an (%)</div>
+          <input type="number" id="w_quran" min="0" max="100" placeholder="15" oninput="saveTargets()">
+        </div>
+        <div class="form-group">
+          <div class="form-label">Mengaji / Ilmu (%)</div>
+          <input type="number" id="w_ilmu" min="0" max="100" placeholder="10" oninput="saveTargets()">
+        </div>
+        <div class="form-group">
+          <div class="form-label">Puasa (%)</div>
+          <input type="number" id="w_puasa" min="0" max="100" placeholder="5" oninput="saveTargets()">
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div id="weightTotal" style="font-size:13px;color:var(--ink-soft)">Total: 0%</div>
+    </div>
+  </div>
+
+  <div style="padding:20px 0"></div>
+</div>
+
+<!-- SAVE BAR (only on harian) -->
+<div class="save-bar" id="saveBar">
+  <span class="save-status" id="saveStatus"></span>
+  <button class="btn-secondary" onclick="clearDay()">Bersihkan hari ini</button>
+  <button class="btn-save" onclick="saveDay()">💾 Simpan</button>
+</div>
+
+<script>
+// ══════════════════════════════════
+//  STATE
+// ══════════════════════════════════
+let currentDateKey = todayKey();
+let currentMonth = new Date().getMonth();
+let currentYear = new Date().getFullYear();
+let quranRowCount = 0;
+let extraCount = 0;
+
+const SHOLAT_NAMES = ['Subuh','Dzuhur','Ashar','Maghrib','Isya'];
+const SHOLAT_IDS   = ['subuh','dzuhur','ashar','maghrib','isya'];
+
+function todayKey() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function keyToDate(key) {
+  const [y,m,d] = key.split('-').map(Number);
+  return new Date(y,m-1,d);
+}
+
+// ══════════════════════════════════
+//  INIT
+// ══════════════════════════════════
+// ── PWA INSTALL ──
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  document.getElementById('installBtn').style.display = 'block';
+});
+window.addEventListener('appinstalled', () => {
+  document.getElementById('installBtn').style.display = 'none';
+  deferredPrompt = null;
+});
+function installPWA() {
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then(() => { deferredPrompt = null; });
+  } else {
+    alert('Cara pasang ikon di HP Android:\n\n1. Buka file ini di Chrome\n2. Ketuk menu ⋮ (titik tiga) di pojok kanan atas\n3. Pilih "Tambahkan ke layar utama"\n4. Ketuk "Tambahkan"\n\nSetelah itu ikon Muhasabah akan muncul di layar HP Anda.');
+  }
+}
+
+window.onload = function() {
+  const name = getStorage('mh_userName');
+  if (name) {
+    document.getElementById('welcomeOverlay').style.display = 'none';
+    showUserBadge(name);
+  }
+  buildSholatRows();
+  loadTargets();
+  loadDay(currentDateKey);
+  updateDateBar();
+  renderMonthly();
+};
+
+document.getElementById('nameInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') saveNameAndStart();
+});
+
+function saveNameAndStart() {
+  const name = document.getElementById('nameInput').value.trim();
+  if (!name) { alert('Silakan isi nama Anda dulu.'); return; }
+  setStorage('mh_userName', name);
+  document.getElementById('welcomeOverlay').style.display = 'none';
+  showUserBadge(name);
+}
+
+function showUserBadge(name) {
+  document.getElementById('userBadge').style.display = 'flex';
+  document.getElementById('userNameDisplay').textContent = name;
+  document.getElementById('userAvatar').textContent = name.charAt(0).toUpperCase();
+}
+
+// ══════════════════════════════════
+//  SHOLAT ROWS BUILD
+// ══════════════════════════════════
+function buildSholatRows() {
+  const body = document.getElementById('sholatBody');
+  body.innerHTML = '';
+  SHOLAT_IDS.forEach((id, i) => {
+    const row = document.createElement('div');
+    row.className = 'sholat-row';
+    row.innerHTML = `
+      <div class="sholat-name">${SHOLAT_NAMES[i]}</div>
+      <div class="sholat-col">
+        <div class="col-label">Dikerjakan pukul</div>
+        <input type="time" id="sh_${id}_jam" oninput="autoSave()">
+        <div style="margin-top:4px">
+          <div class="col-label" style="margin-bottom:3px">Status</div>
+          <select id="sh_${id}_status" class="status-select" onchange="updateStatusStyle(this);autoSave()">
+            <option value="">– pilih –</option>
+            <option value="tepat">Tepat waktu</option>
+            <option value="jamak">Jamak</option>
+            <option value="qadha">Qadha</option>
+            <option value="tidak">Tidak</option>
+          </select>
+        </div>
+      </div>
+      <div class="sholat-col">
+        <div class="col-label">Rawatib</div>
+        <label class="check-label"><input type="checkbox" id="sh_${id}_qob" onchange="autoSave()"> Qobliyah</label>
+        <label class="check-label"><input type="checkbox" id="sh_${id}_bak" onchange="autoSave()"> Bakdiyah</label>
+      </div>
+    `;
+    body.appendChild(row);
+  });
+}
+
+function updateStatusStyle(sel) {
+  sel.className = 'status-select';
+  if (sel.value === 'tepat') sel.classList.add('status-tepat');
+  else if (sel.value === 'jamak') sel.classList.add('status-jamak');
+  else if (sel.value === 'qadha') sel.classList.add('status-qadha');
+  else if (sel.value === 'tidak') sel.classList.add('status-tidak');
+}
+
+// ══════════════════════════════════
+//  QURAN ROWS
+// ══════════════════════════════════
+function addQuranRow(data={}) {
+  const container = document.getElementById('quranRows');
+  const idx = quranRowCount++;
+  const div = document.createElement('div');
+  div.id = `qrow_${idx}`;
+  div.style.cssText = 'background:var(--parchment);border:1px solid var(--border-light);border-radius:8px;padding:10px;margin-bottom:8px;position:relative';
+  div.innerHTML = `
+    <button class="del-btn" onclick="removeQuranRow(${idx})" title="Hapus" style="position:absolute;top:8px;right:8px;font-size:18px;color:var(--ink-muted)">×</button>
+    <div style="font-size:11px;font-weight:700;color:var(--gold-dark);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Sesi Baca ${idx+1}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+      <div class="form-group">
+        <div class="form-label">Juz</div>
+        <input type="number" id="q_juz_${idx}" min="1" max="30" placeholder="1–30" value="${data.juz||''}" oninput="autoSave()" style="text-align:center">
+      </div>
+      <div class="form-group">
+        <div class="form-label">Halaman (1–604)</div>
+        <input type="number" id="q_hal_${idx}" min="1" max="604" placeholder="1–604" value="${data.hal||''}" oninput="autoSave()" style="text-align:center">
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div class="form-group">
+        <div class="form-label">Dari Surat : Ayat</div>
+        <input type="text" id="q_dari_${idx}" placeholder="cth: Al-Baqarah:1" value="${data.dari||''}" oninput="autoSave()">
+      </div>
+      <div class="form-group">
+        <div class="form-label">Sampai Surat : Ayat</div>
+        <input type="text" id="q_sampai_${idx}" placeholder="cth: Al-Baqarah:20" value="${data.sampai||''}" oninput="autoSave()">
+      </div>
+    </div>
+  `;
+  container.appendChild(div);
+}
+
+function removeQuranRow(idx) {
+  const el = document.getElementById(`qrow_${idx}`);
+  if (el) el.remove();
+  autoSave();
+}
+
+// ══════════════════════════════════
+//  PENGAJIAN RUTIN
+// ══════════════════════════════════
+let pengajianCount = 0;
+
+function addPengajianItem(data={}) {
+  const container = document.getElementById('pengajianList');
+  const idx = pengajianCount++;
+  const div = document.createElement('div');
+  div.id = `pgj_${idx}`;
+  div.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border-light)';
+  div.innerHTML = `
+    <input type="checkbox" id="pgj_chk_${idx}" onchange="autoSave()" style="width:20px;height:20px;accent-color:var(--gold-dark);flex-shrink:0;cursor:pointer" ${data.hadir?'checked':''}>
+    <input type="text" id="pgj_nama_${idx}" placeholder="Nama pengajian / majelis..." value="${data.nama||''}" oninput="autoSave()" style="flex:1">
+    <button class="del-btn" onclick="removePengajian(${idx})" title="Hapus" style="font-size:18px">×</button>
+  `;
+  container.appendChild(div);
+}
+
+function removePengajian(idx) {
+  const el = document.getElementById(`pgj_${idx}`);
+  if (el) el.remove();
+  autoSave();
+}
+function addExtraAmalan(data={}) {
+  const container = document.getElementById('extraAmalanList');
+  const idx = extraCount++;
+  const div = document.createElement('div');
+  div.id = `extra_${idx}`;
+  div.className = 'extra-item';
+  div.innerHTML = `
+    <input type="text" id="ex_nama_${idx}" placeholder="Nama amalan..." value="${data.nama||''}" oninput="autoSave()">
+    <input type="number" id="ex_val_${idx}" placeholder="jumlah" min="0" value="${data.val||''}" oninput="autoSave()">
+    <button class="del-btn" onclick="removeExtra(${idx})" title="Hapus">×</button>
+  `;
+  container.appendChild(div);
+}
+
+function removeExtra(idx) {
+  const el = document.getElementById(`extra_${idx}`);
+  if (el) el.remove();
+  autoSave();
+}
+
+// ══════════════════════════════════
+//  COLLECT / FILL FORM
+// ══════════════════════════════════
+function collectForm() {
+  const data = {};
+
+  // sholat
+  data.sholat = {};
+  SHOLAT_IDS.forEach(id => {
+    data.sholat[id] = {
+      jam: val(`sh_${id}_jam`),
+      status: val(`sh_${id}_status`),
+      qob: chk(`sh_${id}_qob`),
+      bak: chk(`sh_${id}_bak`),
+    };
+  });
+
+  // sholat sunnah
+  data.sunnah = { duha: val('s_duha'), tahajud: val('s_tahajud'), tasbih: val('s_tasbih') };
+
+  // dzikir
+  data.dzikir = { pr: val('d_pr'), mulk: val('d_mulk'), malam: val('d_malam') };
+
+  // quran rows
+  data.quran = [];
+  document.querySelectorAll('[id^="qrow_"]').forEach(row => {
+    const idx = row.id.split('_')[1];
+    data.quran.push({
+      juz: val(`q_juz_${idx}`),
+      hal: val(`q_hal_${idx}`),
+      dari: val(`q_dari_${idx}`),
+      sampai: val(`q_sampai_${idx}`),
+    });
+  });
+
+  // puasa
+  data.puasa = { seninkamis: val('p_seninkamis'), daud: val('p_daud'), lain: val('p_lain') };
+
+  // ilmu
+  data.ilmu = { ngaji: val('ilmu_ngaji'), hadits: val('ilmu_hadits'), catatan: val('ilmu_catatan') };
+
+  // extra
+  data.extra = [];
+  document.querySelectorAll('[id^="extra_"]').forEach(row => {
+    const idx = row.id.split('_')[1];
+    data.extra.push({ nama: val(`ex_nama_${idx}`), val: val(`ex_val_${idx}`) });
+  });
+
+  // pengajian
+  data.pengajian = [];
+  document.querySelectorAll('[id^="pgj_"]').forEach(row => {
+    if (!row.id.startsWith('pgj_c') && !row.id.startsWith('pgj_n')) {
+      const idx = row.id.split('_')[1];
+      data.pengajian.push({
+        nama: val(`pgj_nama_${idx}`),
+        hadir: document.getElementById(`pgj_chk_${idx}`)?.checked || false,
+      });
+    }
+  });
+
+  return data;
+}
+
+function fillForm(data) {
+  if (!data) return;
+
+  // sholat
+  if (data.sholat) {
+    SHOLAT_IDS.forEach(id => {
+      const s = data.sholat[id] || {};
+      setVal(`sh_${id}_jam`, s.jam||'');
+      setVal(`sh_${id}_status`, s.status||'');
+      setChk(`sh_${id}_qob`, s.qob||false);
+      setChk(`sh_${id}_bak`, s.bak||false);
+      const sel = document.getElementById(`sh_${id}_status`);
+      if (sel) updateStatusStyle(sel);
+    });
+  }
+
+  // sunnah
+  if (data.sunnah) {
+    setVal('s_duha', data.sunnah.duha||'');
+    setVal('s_tahajud', data.sunnah.tahajud||'');
+    setVal('s_tasbih', data.sunnah.tasbih||'');
+  }
+
+  // dzikir
+  if (data.dzikir) {
+    setVal('d_pr', data.dzikir.pr||'');
+    setVal('d_mulk', data.dzikir.mulk||'');
+    setVal('d_malam', data.dzikir.malam||'');
+  }
+
+  // quran
+  document.getElementById('quranRows').innerHTML = '';
+  quranRowCount = 0;
+  if (data.quran && data.quran.length) {
+    data.quran.forEach(q => addQuranRow(q));
+  } else {
+    addQuranRow();
+  }
+
+  // puasa
+  if (data.puasa) {
+    setVal('p_seninkamis', data.puasa.seninkamis||'');
+    setVal('p_daud', data.puasa.daud||'');
+    setVal('p_lain', data.puasa.lain||'');
+  }
+
+  // ilmu
+  if (data.ilmu) {
+    setVal('ilmu_ngaji', data.ilmu.ngaji||'');
+    setVal('ilmu_hadits', data.ilmu.hadits||'');
+    setVal('ilmu_catatan', data.ilmu.catatan||'');
+  }
+
+  // extra
+  document.getElementById('extraAmalanList').innerHTML = '';
+  extraCount = 0;
+  if (data.extra && data.extra.length) {
+    data.extra.forEach(e => addExtraAmalan(e));
+  }
+
+  // pengajian
+  document.getElementById('pengajianList').innerHTML = '';
+  pengajianCount = 0;
+  if (data.pengajian && data.pengajian.length) {
+    data.pengajian.forEach(p => addPengajianItem(p));
+  }
+
+  updateTargetProgress();
+}
+
+function clearDay() {
+  if (!confirm('Hapus semua isian hari ini?')) return;
+  removeStorage(`mh_day_${currentDateKey}`);  quranRowCount = 0; extraCount = 0; pengajianCount = 0;
+  fillForm({});
+  const statusEl = document.getElementById('saveStatus');
+  statusEl.textContent = 'Data hari ini dihapus.';
+  statusEl.style.color = 'var(--ink-muted)';
+}
+
+// ══════════════════════════════════
+//  SAVE / LOAD
+// ══════════════════════════════════
+function saveDay() {
+  const data = collectForm();
+  data.savedAt = new Date().toISOString();
+  const key = `mh_day_${currentDateKey}`;
+  const json = JSON.stringify(data);
+
+  // Coba simpan ke localStorage
+  let saved = false;
+  try {
+    localStorage.setItem(key, json);
+    // Verifikasi benar-benar tersimpan
+    const check = localStorage.getItem(key);
+    if (check) saved = true;
+  } catch(e) {
+    saved = false;
+  }
+
+  const now = new Date();
+  const timeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  const statusEl = document.getElementById('saveStatus');
+
+  if (saved) {
+    statusEl.textContent = `✓ Tersimpan pukul ${timeStr}`;
+    statusEl.style.color = 'var(--green)';
+  } else {
+    // Fallback: simpan ke sessionStorage agar tidak hilang dalam sesi ini
+    try {
+      sessionStorage.setItem(key, json);
+      statusEl.textContent = `⚠ Tersimpan sementara (sesi ini). Buka di browser langsung untuk simpan permanen.`;
+      statusEl.style.color = 'var(--gold-dark)';
+    } catch(e2) {
+      statusEl.textContent = `✗ Gagal simpan. Coba buka file di browser (bukan preview).`;
+      statusEl.style.color = 'var(--red)';
+    }
+  }
+  renderMonthly();
+}
+
+let autoSaveTimer;
+function autoSave() {
+  clearTimeout(autoSaveTimer);
+  autoSaveTimer = setTimeout(() => {
+    saveDay();
+    updateTargetProgress();
+  }, 1000);
+}
+
+function loadDay(key) {
+  // Coba localStorage dulu, fallback ke sessionStorage
+  let raw = null;
+  try { raw = localStorage.getItem(`mh_day_${key}`); } catch(e) {}
+  if (!raw) {
+    try { raw = sessionStorage.getItem(`mh_day_${key}`); } catch(e) {}
+  }
+  const data = raw ? JSON.parse(raw) : null;
+  fillForm(data);
+}
+
+// ══════════════════════════════════
+//  DATE NAVIGATION
+// ══════════════════════════════════
+const HARI = ['Ahad','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+const BULAN = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+
+function updateDateBar() {
+  const d = keyToDate(currentDateKey);
+  document.getElementById('dateDisplay').textContent =
+    `${HARI[d.getDay()]}, ${d.getDate()} ${BULAN[d.getMonth()]} ${d.getFullYear()}`;
+
+  const isToday = currentDateKey === todayKey();
+  document.getElementById('dateHijri').textContent = isToday ? 'Hari ini' : '';
+}
+
+function changeDay(n) {
+  const d = keyToDate(currentDateKey);
+  d.setDate(d.getDate() + n);
+  currentDateKey = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  updateDateBar();
+  loadDay(currentDateKey);
+  document.getElementById('saveStatus').textContent = '';
+}
+
+function goToday() {
+  currentDateKey = todayKey();
+  updateDateBar();
+  loadDay(currentDateKey);
+}
+
+// ══════════════════════════════════
+//  TARGETS
+// ══════════════════════════════════
+function saveTargets() {
+  const t = {
+    sholat5: val('t_sholat5'), rawatib: val('t_rawatib'),
+    duha: val('t_duha'), tahajud: val('t_tahajud'), tasbih: val('t_tasbih'),
+    pr: val('t_pr'), mulk: val('t_mulk'), malam: val('t_malam'),
+    quran: val('t_quran'), ilmu: val('t_ilmu'),
+    w_sholat: val('w_sholat'), w_sunnah: val('w_sunnah'), w_dzikir: val('w_dzikir'),
+    w_quran: val('w_quran'), w_ilmu: val('w_ilmu'), w_puasa: val('w_puasa'),
+  };
+  setStorage('mh_targets', JSON.stringify(t));
+
+  const total = ['w_sholat','w_sunnah','w_dzikir','w_quran','w_ilmu','w_puasa']
+    .reduce((s,k) => s + (parseInt(t[k])||0), 0);
+  const el = document.getElementById('weightTotal');
+  el.textContent = `Total bobot: ${total}%`;
+  el.style.color = total === 100 ? 'var(--green)' : total > 100 ? 'var(--red)' : 'var(--ink-soft)';
+
+  updateTargetProgress();
+}
+
+function loadTargets() {
+  const raw = getStorage('mh_targets');
+  if (!raw) return;
+  const t = JSON.parse(raw);
+  const map = {
+    't_sholat5':t.sholat5,'t_rawatib':t.rawatib,'t_duha':t.duha,'t_tahajud':t.tahajud,
+    't_tasbih':t.tasbih,'t_pr':t.pr,'t_mulk':t.mulk,'t_malam':t.malam,
+    't_quran':t.quran,'t_ilmu':t.ilmu,
+    'w_sholat':t.w_sholat,'w_sunnah':t.w_sunnah,'w_dzikir':t.w_dzikir,
+    'w_quran':t.w_quran,'w_ilmu':t.w_ilmu,'w_puasa':t.w_puasa,
+  };
+  Object.entries(map).forEach(([id, v]) => setVal(id, v||''));
+
+  const total = ['w_sholat','w_sunnah','w_dzikir','w_quran','w_ilmu','w_puasa']
+    .reduce((s,k) => s + (parseInt(t[k])||0), 0);
+  const el = document.getElementById('weightTotal');
+  if (el) { el.textContent = `Total bobot: ${total}%`; }
+}
+
+function updateTargetProgress() {
+  const raw = getStorage('mh_targets');
+  if (!raw) { document.getElementById('targetProgress').style.display='none'; return; }
+  const t = JSON.parse(raw);
+  const hasTarget = Object.values(t).some(v => v && v !== '');
+  if (!hasTarget) { document.getElementById('targetProgress').style.display='none'; return; }
+
+  const data = collectForm();
+  document.getElementById('targetProgress').style.display = '';
+  const body = document.getElementById('targetProgressBody');
+
+  const items = [];
+
+  // sholat 5 waktu
+  const tS = parseInt(t.sholat5)||5;
+  const actualS = SHOLAT_IDS.filter(id => data.sholat[id]?.status && data.sholat[id].status !== 'tidak').length;
+  items.push({ label:'Sholat fardhu', actual: actualS, target: tS, unit:'waktu' });
+
+  // sunnah (total rakaat)
+  const tDuha = parseInt(t.duha)||0, tTahajud = parseInt(t.tahajud)||0, tTasbih = parseInt(t.tasbih)||0;
+  const totalSunnahTarget = tDuha + tTahajud + tTasbih;
+  if (totalSunnahTarget) {
+    const actualSunnah = (parseInt(data.sunnah.duha)||0)+(parseInt(data.sunnah.tahajud)||0)+(parseInt(data.sunnah.tasbih)||0);
+    items.push({ label:'Sholat sunnah', actual: actualSunnah, target: totalSunnahTarget, unit:'rakaat' });
+  }
+
+  // pr
+  if (t.pr) items.push({ label:'PR / Doa Rutin', actual: parseInt(data.dzikir.pr)||0, target: parseInt(t.pr), unit:'kali' });
+  if (t.mulk) items.push({ label:'Al-Mulk', actual: parseInt(data.dzikir.mulk)||0, target: parseInt(t.mulk), unit:'kali' });
+  if (t.malam) items.push({ label:'Doa Malam', actual: parseInt(data.dzikir.malam)||0, target: parseInt(t.malam), unit:'kali' });
+
+  // quran
+  if (t.quran) {
+    const actualQ = data.quran.filter(q=>q.dari||q.sampai).length;
+    items.push({ label:'Baca Qur\'an', actual: actualQ, target: parseInt(t.quran), unit:'sesi' });
+  }
+
+  // ilmu
+  if (t.ilmu) {
+    const actualI = (parseInt(data.ilmu.ngaji)||0)+(parseInt(data.ilmu.hadits)||0);
+    items.push({ label:'Mengaji / Ilmu', actual: actualI, target: parseInt(t.ilmu), unit:'menit' });
+  }
+
+  body.innerHTML = items.map(item => {
+    const pct = Math.min(100, Math.round((item.actual / item.target) * 100));
+    const done = pct >= 100;
+    return `
+      <div style="margin-bottom:10px">
+        <div class="progress-label">
+          <span>${item.label}</span>
+          <span style="color:${done?'var(--green)':'var(--ink-soft)'}">${item.actual}/${item.target} ${item.unit} ${done?'✓':''}</span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill ${done?'done':''}" style="width:${pct}%"></div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ══════════════════════════════════
+//  MONTHLY
+// ══════════════════════════════════
+function changeMonth(n) {
+  currentMonth += n;
+  if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+  if (currentMonth < 0)  { currentMonth = 11; currentYear--; }
+  renderMonthly();
+}
+
+// ══════════════════════════════════
+//  STORAGE HELPERS (localStorage + sessionStorage fallback)
+// ══════════════════════════════════
+function getStorage(key) {
+  let v = null;
+  try { v = localStorage.getItem(key); } catch(e) {}
+  if (!v) { try { v = sessionStorage.getItem(key); } catch(e) {} }
+  return v;
+}
+function setStorage(key, val) {
+  try { localStorage.setItem(key, val); return true; } catch(e) {}
+  try { sessionStorage.setItem(key, val); return false; } catch(e) {}
+  return false;
+}
+function removeStorage(key) {
+  try { localStorage.removeItem(key); } catch(e) {}
+  try { sessionStorage.removeItem(key); } catch(e) {}
+}
+
+function renderMonthly() {
+  document.getElementById('monthTitle').textContent = `${BULAN[currentMonth]} ${currentYear}`;
+
+  // collect all days in month
+  const daysInMonth = new Date(currentYear, currentMonth+1, 0).getDate();
+  let totalSholat = 0, totalSholatMax = 0;
+  let daysWithData = 0;
+  let totalPuasa = 0;
+  let totalQuranSesi = 0;
+
+  const dayScores = {};
+  for (let d = 1; d <= daysInMonth; d++) {
+    const key = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const raw = getStorage(`mh_day_${key}`);
+    if (!raw) continue;
+    const data = JSON.parse(raw);
+    daysWithData++;
+
+    const sholat5 = SHOLAT_IDS.filter(id => data.sholat?.[id]?.status && data.sholat[id].status !== 'tidak').length;
+    totalSholat += sholat5;
+    totalSholatMax += 5;
+    if (data.puasa?.seninkamis === 'ya' || data.puasa?.daud === 'ya') totalPuasa++;
+    totalQuranSesi += (data.quran||[]).filter(q=>q.dari||q.sampai).length;
+    dayScores[d] = sholat5;
+  }
+
+  // score cards
+  const pctSholat = totalSholatMax ? Math.round((totalSholat/totalSholatMax)*100) : 0;
+  document.getElementById('scoreGrid').innerHTML = `
+    <div class="score-card">
+      <div class="score-card-label">Hari tercatat</div>
+      <div class="score-card-value">${daysWithData}</div>
+      <div class="score-card-unit">dari ${daysInMonth} hari</div>
+    </div>
+    <div class="score-card">
+      <div class="score-card-label">Sholat fardhu</div>
+      <div class="score-card-value">${pctSholat}%</div>
+      <div class="score-card-unit">${totalSholat} dari ${totalSholatMax}</div>
+    </div>
+    <div class="score-card">
+      <div class="score-card-label">Hari puasa</div>
+      <div class="score-card-value">${totalPuasa}</div>
+      <div class="score-card-unit">kali</div>
+    </div>
+    <div class="score-card">
+      <div class="score-card-label">Sesi baca Qur'an</div>
+      <div class="score-card-value">${totalQuranSesi}</div>
+      <div class="score-card-unit">sesi</div>
+    </div>
+    ${computeMonthScore(daysInMonth)}
+  `;
+
+  // calendar
+  const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+  const today = todayKey();
+  const calGrid = document.getElementById('calGrid');
+  calGrid.innerHTML = '';
+  ['Ahd','Sen','Sel','Rab','Kam','Jum','Sab'].forEach(h => {
+    const el = document.createElement('div');
+    el.className = 'cal-day-head';
+    el.textContent = h;
+    calGrid.appendChild(el);
+  });
+
+  for (let i = 0; i < firstDay; i++) {
+    const el = document.createElement('div');
+    el.className = 'cal-day empty';
+    calGrid.appendChild(el);
+  }
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const key = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const hasData = !!getStorage(`mh_day_${key}`);
+    const el = document.createElement('div');
+    el.className = 'cal-day' + (hasData ? ' has-data':'') + (key===today?' today-cal':'');
+    el.innerHTML = `<span>${d}</span>${hasData?'<div class="cal-dot"></div>':''}`;
+    el.onclick = () => showDayDetail(key, d);
+    calGrid.appendChild(el);
+  }
+}
+
+function computeMonthScore(daysInMonth) {
+  const raw = getStorage('mh_targets');
+  if (!raw) return '';
+  const t = JSON.parse(raw);
+  const weights = {
+    sholat: parseInt(t.w_sholat)||40,
+    sunnah: parseInt(t.w_sunnah)||15,
+    dzikir: parseInt(t.w_dzikir)||15,
+    quran:  parseInt(t.w_quran)||15,
+    ilmu:   parseInt(t.w_ilmu)||10,
+    puasa:  parseInt(t.w_puasa)||5,
+  };
+
+  let totalScore = 0, counted = 0;
+  for (let d = 1; d <= daysInMonth; d++) {
+    const key = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const raw2 = getStorage(`mh_day_${key}`);
+    if (!raw2) continue;
+    const data = JSON.parse(raw2);
+    let dayScore = 0;
+
+    const tS = parseInt(t.sholat5)||5;
+    const aS = SHOLAT_IDS.filter(id=>data.sholat?.[id]?.status&&data.sholat[id].status!=='tidak').length;
+    dayScore += (aS/tS)*weights.sholat;
+
+    const tSunn = (parseInt(t.duha)||0)+(parseInt(t.tahajud)||0)+(parseInt(t.tasbih)||0);
+    if (tSunn) {
+      const aSunn = (parseInt(data.sunnah?.duha)||0)+(parseInt(data.sunnah?.tahajud)||0)+(parseInt(data.sunnah?.tasbih)||0);
+      dayScore += Math.min(1, aSunn/tSunn)*weights.sunnah;
+    }
+
+    const tPr = parseInt(t.pr)||0, tMulk = parseInt(t.mulk)||0, tMalam = parseInt(t.malam)||0;
+    const tDz = tPr+tMulk+tMalam;
+    if (tDz) {
+      const aDz = (parseInt(data.dzikir?.pr)||0)+(parseInt(data.dzikir?.mulk)||0)+(parseInt(data.dzikir?.malam)||0);
+      dayScore += Math.min(1, aDz/tDz)*weights.dzikir;
+    }
+
+    if (parseInt(t.quran)) {
+      const aQ = (data.quran||[]).filter(q=>q.dari||q.sampai).length;
+      dayScore += Math.min(1, aQ/parseInt(t.quran))*weights.quran;
+    }
+
+    if (parseInt(t.ilmu)) {
+      const aI = (parseInt(data.ilmu?.ngaji)||0)+(parseInt(data.ilmu?.hadits)||0);
+      dayScore += Math.min(1, aI/parseInt(t.ilmu))*weights.ilmu;
+    }
+
+    counted++;
+    totalScore += dayScore;
+  }
+
+  if (!counted) return '';
+  const avg = Math.round(totalScore / counted);
+  let grade = 'D';
+  if (avg >= 90) grade = 'A';
+  else if (avg >= 75) grade = 'B';
+  else if (avg >= 60) grade = 'C';
+
+  return `
+    <div class="score-card" style="border-color:var(--gold);background:var(--gold-pale)">
+      <div class="score-card-label">Nilai Bulanan</div>
+      <div class="score-card-value" style="font-size:32px">${grade}</div>
+      <div class="score-card-unit">${avg}/100 (${counted} hari)</div>
+    </div>
+  `;
+}
+
+function showDayDetail(key, d) {
+  const raw = getStorage(`mh_day_${key}`);
+  const detail = document.getElementById('monthDetail');
+  if (!raw) {
+    detail.innerHTML = `<div style="color:var(--ink-muted);font-size:13px;font-style:italic">Tidak ada catatan untuk tanggal ${d}.</div>`;
+    return;
+  }
+  const data = JSON.parse(raw);
+  const date = keyToDate(key);
+
+  let html = `<div style="font-size:14px;font-weight:700;color:var(--gold-dark);margin-bottom:10px">${HARI[date.getDay()]}, ${d} ${BULAN[date.getMonth()]} ${date.getFullYear()}</div>`;
+
+  // sholat
+  html += `<div style="font-size:12px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Sholat Fardhu</div>`;
+  SHOLAT_IDS.forEach((id,i) => {
+    const s = data.sholat?.[id]||{};
+    const st = s.status||'-';
+    const color = st==='tepat'?'var(--green)':st==='qadha'?'var(--red)':st==='jamak'?'var(--gold-dark)':'var(--ink-muted)';
+    html += `<div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0;border-bottom:1px solid var(--border-light)">
+      <span>${SHOLAT_NAMES[i]}</span>
+      <span style="color:${color}">${st} ${s.jam?'('+s.jam+')':''} ${s.qob?'+ Qob':''}${s.bak?' + Bak':''}</span>
+    </div>`;
+  });
+
+  html += `<div style="margin-top:10px;font-size:12px;font-weight:700;color:var(--ink-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">Ringkasan</div>`;
+
+  const items = [
+    ['Dhuha', (data.sunnah?.duha||'-') + ' rakaat'],
+    ['Tahajud', (data.sunnah?.tahajud||'-') + ' rakaat'],
+    ['PR/Doa', (data.dzikir?.pr||'-') + ' kali'],
+    ['Al-Mulk', (data.dzikir?.mulk||'-') + ' kali'],
+    ['Puasa', data.puasa?.seninkamis==='ya'?'Senin-Kamis':data.puasa?.daud==='ya'?'Nabi Daud':'-'],
+    ['Baca Qur\'an', ((data.quran||[]).filter(q=>q.dari||q.sampai).length) + ' sesi'],
+    ['Pengajian', (data.pengajian||[]).filter(p=>p.hadir).map(p=>p.nama||'✓').join(', ')||'-'],
+  ];
+
+  html += items.map(([k,v]) => `
+    <div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0;border-bottom:1px solid var(--border-light)">
+      <span style="color:var(--ink-soft)">${k}</span><span>${v}</span>
+    </div>`).join('');
+
+  detail.innerHTML = html;
+}
+
+// ══════════════════════════════════
+//  PAGE SWITCH
+// ══════════════════════════════════
+function switchPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(`page-${name}`).classList.add('active');
+  event.target.classList.add('active');
+  document.getElementById('saveBar').style.display = name === 'harian' ? 'flex' : 'none';
+  if (name === 'bulanan') renderMonthly();
+}
+
+// ══════════════════════════════════
+//  UTILS
+// ══════════════════════════════════
+function val(id) { const el=document.getElementById(id); return el?el.value:''; }
+function setVal(id, v) { const el=document.getElementById(id); if(el) el.value=v; }
+function chk(id) { const el=document.getElementById(id); return el?el.checked:false; }
+function setChk(id, v) { const el=document.getElementById(id); if(el) el.checked=v; }
+
+// init quran row
+addQuranRow();
+</script>
+</body>
+</html>
