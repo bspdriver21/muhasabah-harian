@@ -9,77 +9,13 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Muhasabah">
-<link rel="manifest" id="pwaManifest">
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
+<link rel="apple-touch-icon" href="./icon-192.png">
 <script>
-// ── PWA MANIFEST (inline, no server needed) ──
-const manifestData = {
-  name: "Muhasabah Harian",
-  short_name: "Muhasabah",
-  description: "Catatan ibadah harian untuk muhasabah diri",
-  start_url: "./",
-  display: "standalone",
-  background_color: "#fdf8f0",
-  theme_color: "#7a6020",
-  orientation: "portrait",
-  icons: [
-    { src: makeIcon(192), sizes: "192x192", type: "image/png" },
-    { src: makeIcon(512), sizes: "512x512", type: "image/png" }
-  ]
-};
-function makeIcon(size) {
-  const canvas = document.createElement('canvas');
-  canvas.width = size; canvas.height = size;
-  const ctx = canvas.getContext('2d');
-  // background
-  ctx.fillStyle = '#f5eddb';
-  ctx.beginPath();
-  ctx.roundRect(0, 0, size, size, size * 0.18);
-  ctx.fill();
-  // border
-  ctx.strokeStyle = '#b8953a';
-  ctx.lineWidth = size * 0.03;
-  ctx.stroke();
-  // arabic text
-  ctx.fillStyle = '#7a6020';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.font = `bold ${size*0.28}px serif`;
-  ctx.fillText('م', size/2, size*0.38);
-  ctx.font = `${size*0.13}px sans-serif`;
-  ctx.fillStyle = '#5a4e38';
-  ctx.fillText('Muhasabah', size/2, size*0.65);
-  ctx.font = `${size*0.09}px sans-serif`;
-  ctx.fillStyle = '#8a7d65';
-  ctx.fillText('Harian', size/2, size*0.78);
-  return canvas.toDataURL('image/png');
-}
-// inject manifest
-window.addEventListener('DOMContentLoaded', () => {
-  const icons = [
-    { src: makeIcon(192), sizes: "192x192", type: "image/png" },
-    { src: makeIcon(512), sizes: "512x512", type: "image/png" }
-  ];
-  const manifest = { ...manifestData, icons };
-  const blob = new Blob([JSON.stringify(manifest)], {type:'application/json'});
-  document.getElementById('pwaManifest').href = URL.createObjectURL(blob);
-});
-// ── SERVICE WORKER (offline cache) ──
 if ('serviceWorker' in navigator) {
-  const swCode = `
-const CACHE = 'muhasabah-v1';
-self.addEventListener('install', e => {
-  self.skipWaiting();
-});
-self.addEventListener('fetch', e => {
-  e.respondWith(
-    caches.match(e.request).then(r => r || fetch(e.request).catch(() => new Response('', {status: 408})))
-  );
-});
-  `;
-  const swBlob = new Blob([swCode], {type:'application/javascript'});
-  const swUrl = URL.createObjectURL(swBlob);
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register(swUrl).catch(() => {});
+    navigator.serviceWorker.register('./service-worker.js').catch(() => {});
   });
 }
 </script>
